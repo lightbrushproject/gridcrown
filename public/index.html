@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRIDCROWN - fast territory strategy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2310151b'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='%23e0a82e'%3E%E2%99%9B%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #10151b;
+    --panel: #1a222c;
+    --panel2: #222c38;
+    --line: #2e3a48;
+    --ink: #e8edf3;
+    --dim: #9aa7b5;
+    --gold: #e0a82e;
+    --gold-dim: #8a6a1f;
+    --bad: #d95f4b;
+    --ok: #4caf7d;
+    --s0: #e0a82e;
+    --s1: #3d9bd6;
+    --s2: #d95f4b;
+    --s3: #4caf7d;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: #0c1117;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    font-size: 22px;
+    letter-spacing: 3px;
+    margin: 0;
+    color: var(--gold);
+  }
+  header .sub { color: var(--dim); font-size: 13px; }
+  header .spacer { flex: 1; }
+  .codebadge {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    background: var(--panel2);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    padding: 4px 14px;
+    border-radius: 6px;
+  }
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+  }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--dim);
+    font-weight: 600;
+  }
+  #home { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 700px) { #home { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 13px; color: var(--dim); margin: 8px 0 4px; }
+  input[type="text"], select {
+    width: 100%;
+    padding: 9px 10px;
+    font-size: 15px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #0f141b;
+    color: var(--ink);
+  }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > * { flex: 1; }
+  button {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    color: var(--ink);
+    padding: 9px 12px;
+  }
+  button:not(.cell):hover { border-color: var(--gold-dim); }
+  button.primary { background: var(--gold); border-color: var(--gold); color: #191204; }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.mode[aria-pressed="true"] {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: #2a2413;
+  }
+  .checkline { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; }
+  #banner {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 10px;
+    border-radius: var(--radius);
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  #banner.yours { border-color: var(--gold); color: var(--gold); }
+  #banner.done { border-color: var(--ok); color: var(--ok); }
+  #boardWrap { display: flex; flex-direction: column; gap: 12px; }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 5px;
+    aspect-ratio: 1;
+    max-width: 520px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .cell {
+    position: relative;
+    border-radius: 7px;
+    background: #232d3a;
+    border: 1px solid #314052;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    min-height: 0;
+    padding: 0;
+    font-weight: 400;
+  }
+  .cell.o0 { background: #4d3d14; border-color: var(--s0); }
+  .cell.o1 { background: #17394e; border-color: var(--s1); }
+  .cell.o2 { background: #4e231b; border-color: var(--s2); }
+  .cell.o3 { background: #1d4030; border-color: var(--s3); }
+  .cell .crown { font-size: 20px; line-height: 1; }
+  .cell.o0 .crown { color: var(--s0); }
+  .cell.o1 .crown { color: var(--s1); }
+  .cell.o2 .crown { color: var(--s2); }
+  .cell.o3 .crown { color: var(--s3); }
+  .cell .hp {
+    position: absolute;
+    bottom: 2px;
+    right: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .cell .shields {
+    position: absolute;
+    top: 2px;
+    left: 5px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #cfe0f2;
+  }
+  .cell .coord {
+    position: absolute;
+    bottom: 2px;
+    left: 5px;
+    font-size: 9px;
+    color: rgba(255,255,255,0.28);
+  }
+  .cell.mine { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.22); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cell.mine { animation: none; }
+  }
+  .cell.target { cursor: pointer; outline: 2px solid var(--gold); outline-offset: -2px; }
+  .cell.target:hover { filter: brightness(1.35); }
+  #actionbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  #actionbar button { flex: 1; min-width: 110px; }
+  #appips { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--dim); }
+  .pip {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #2b3543; border: 1px solid #3b4a5e;
+    display: inline-block;
+  }
+  .pip.on { background: var(--gold); border-color: var(--gold); }
+  table.roster { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.roster td, table.roster th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+  table.roster th { color: var(--dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+  .d0 { background: var(--s0); } .d1 { background: var(--s1); }
+  .d2 { background: var(--s2); } .d3 { background: var(--s3); }
+  .tagbot {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    border: 1px solid var(--dim); border-radius: 4px;
+    padding: 1px 5px; margin-left: 6px; color: var(--dim);
+  }
+  .dead { color: var(--dim); text-decoration: line-through; }
+  #loglist { list-style: none; margin: 0; padding: 0 0 6px; font-size: 13px; max-height: 220px; overflow-y: auto; }
+  #loglist li { padding: 4px 0; border-bottom: 1px solid var(--line); color: #c8d2de; line-height: 1.45; }
+  @media (max-height: 860px) {
+    #board { max-width: 400px; }
+    main { padding: 10px; gap: 10px; }
+  }
+  #loglist li .n { color: var(--dim); margin-right: 6px; }
+  #replaybar { display: flex; gap: 6px; margin-top: 8px; }
+  #replaybar button { flex: 1; padding: 6px 4px; font-size: 13px; }
+  #replayinfo { font-size: 13px; color: var(--dim); margin-top: 6px; min-height: 18px; }
+  #side { display: flex; flex-direction: column; gap: 16px; }
+  #restorebar {
+    display: none;
+    grid-column: 1 / -1;
+    background: #3a2c10;
+    border: 1px solid var(--gold);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  #restorebar button { margin-left: 10px; }
+  #lobbylist { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .seatline {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px; font-size: 14px;
+  }
+  .seatline.empty { color: var(--dim); border-style: dashed; }
+  #err { color: var(--bad); font-size: 13px; min-height: 18px; margin-top: 8px; }
+  footer {
+    text-align: center;
+    padding: 14px;
+    font-size: 13px;
+    color: var(--dim);
+    border-top: 1px solid var(--line);
+  }
+  footer a { color: var(--gold); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GRIDCROWN</h1>
+  <span class="sub">fast territory strategy on a 6x6 grid</span>
+  <span class="spacer"></span>
+  <span id="codebadge" class="codebadge hidden"></span>
+  <button id="copybtn" class="hidden" title="Copy match code">Copy</button>
+  <button id="leavebtn" class="hidden" title="Leave this match">Leave</button>
+</header>
+
+<div id="restorebar">
+  <span id="restoretext">Saved match not found on the server. A saved log is available.</span>
+  <button id="restorebtn" class="primary">Restore match</button>
+</div>
+
+<main>
+  <div id="banner" class="hidden"></div>
+
+  <section id="home">
+    <div class="panel">
+      <h2>Create a match</h2>
+      <label for="cname">Your name</label>
+      <input id="cname" type="text" maxlength="24" placeholder="e.g. Amber" autocomplete="off">
+      <div class="row">
+        <div>
+          <label for="cseats">Seats</label>
+          <select id="cseats">
+            <option value="2" selected>2 players</option>
+            <option value="3">3 players</option>
+            <option value="4">4 players</option>
+          </select>
+        </div>
+      </div>
+      <div class="checkline">
+        <input id="cbots" type="checkbox" checked>
+        <label for="cbots" style="margin:0">Fill empty seats with bots</label>
+      </div>
+      <p style="margin-top:12px"><button id="createbtn" class="primary" style="width:100%">Create match</button></p>
+    </div>
+    <div class="panel">
+      <h2>Join a match</h2>
+      <label for="jname">Your name</label>
+      <input id="jname" type="text" maxlength="24" placeholder="e.g. Birch" autocomplete="off">
+      <label for="jcode">Match code</label>
+      <input id="jcode" type="text" maxlength="12" placeholder="e.g. KQ7M" autocomplete="off" style="text-transform:uppercase">
+      <p style="margin-top:12px"><button id="joinbtn" style="width:100%">Join match</button></p>
+      <div id="err"></div>
+    </div>
+  </section>
+
+  <section id="game" class="hidden" style="display:contents">
+    <div id="lobbybox" class="panel hidden" style="grid-column:1/-1">
+      <h2>Lobby</h2>
+      <div id="lobbylist"></div>
+      <button id="startbtn" class="primary hidden" style="width:100%">Start match</button>
+    </div>
+    <div id="boardWrap">
+      <div class="panel">
+        <h2 id="boardtitle">Board</h2>
+        <div id="board"></div>
+      </div>
+      <div class="panel">
+        <h2>Actions</h2>
+        <div id="appips"></div>
+        <div id="actionbar" style="margin-top:10px">
+          <button class="mode" data-mode="expand" aria-pressed="true">Expand (1 AP)</button>
+          <button class="mode" data-mode="fortify" aria-pressed="false">Fortify (1 AP)</button>
+          <button class="mode" data-mode="strike" aria-pressed="false">Strike (2 AP)</button>
+          <button id="endbtn">End Turn</button>
+        </div>
+        <div id="merr" style="color:var(--bad);font-size:13px;min-height:18px;margin-top:6px"></div>
+      </div>
+    </div>
+    <div id="side">
+      <div class="panel">
+        <h2>Players</h2>
+        <div id="roster"></div>
+      </div>
+      <div class="panel">
+        <h2>Replay</h2>
+        <div id="replaybar">
+          <button id="rprev">|&lt; Prev</button>
+          <button id="rplay">Play</button>
+          <button id="rnext">Next &gt;|</button>
+          <button id="rlive">Live</button>
+        </div>
+        <div id="replayinfo">Live view. Step back to review history.</div>
+      </div>
+      <div class="panel">
+        <h2>Match log</h2>
+        <ul id="loglist"><li>No entries yet.</li></ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  AI agents can play through the HTTP API. See the <a href="README.md#agent-api">Agent API section of the README</a>.
+</footer>
+
+<script>
+'use strict';
+/* GRIDCROWN client: polling, board render, moves, log, replay, restore. */
+const $ = (id) => document.getElementById(id);
+const SAVE_KEY = 'gridcrown_save_v1';
+const logKey = (code) => 'gridcrown_log_v1_' + code;
+
+let save = null;          // {code, token, name, seat}
+let state = null;         // last state JSON
+let logCache = null;      // {players, log}
+let mode = 'expand';
+let replayIndex = -1;     // -1 means live
+let replayTimer = null;
+let pollTimer = null;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+async function api(path, opts) {
+  let res;
+  try {
+    res = await fetch(path, opts);
+  } catch {
+    return { status: 0, data: {} }; // server unreachable; caller keeps waiting
+  }
+  let data = {};
+  try { data = await res.json(); } catch { data = {}; }
+  return { status: res.status, data };
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    save = raw ? JSON.parse(raw) : null;
+  } catch { save = null; }
+}
+function keepSave() {
+  try {
+    if (save) localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    else localStorage.removeItem(SAVE_KEY);
+  } catch { /* storage unavailable */ }
+}
+function loadLogCache(code) {
+  try {
+    const raw = localStorage.getItem(logKey(code));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function keepLogCache(code, obj) {
+  try { localStorage.setItem(logKey(code), JSON.stringify(obj)); } catch { /* ignore */ }
+}
+
+function showHome() {
+  $('home').classList.remove('hidden');
+  $('game').classList.add('hidden');
+  $('banner').classList.add('hidden');
+  $('codebadge').classList.add('hidden');
+  $('copybtn').classList.add('hidden');
+  $('leavebtn').classList.add('hidden');
+}
+function showGame() {
+  $('home').classList.add('hidden');
+  $('game').classList.remove('hidden');
+  $('banner').classList.remove('hidden');
+  $('codebadge').classList.remove('hidden');
+  $('copybtn').classList.remove('hidden');
+  $('leavebtn').classList.remove('hidden');
+  $('codebadge').textContent = save ? save.code : '';
+}
+
+/* ---------- polling ---------- */
+async function poll() {
+  if (!save) return;
+  const r = await api('/api/matches/' + encodeURIComponent(save.code) + '?token=' + encodeURIComponent(save.token));
+  if (r.status === 404) {
+    // Match gone (cold start?). Offer restore when a log is saved.
+    const cached = loadLogCache(save.code);
+    if (cached && cached.log && cached.log.length) {
+      $('restoretext').textContent =
+        'Match ' + save.code + ' was not found on this server (it may have restarted). ' +
+        'A saved log with ' + cached.log.length + ' entries is available.';
+      $('restorebar').style.display = 'block';
+    } else {
+      setErr('Match not found on the server.');
+      stopPolling();
+    }
+    return;
+  }
+  if (r.status === 0) return; // offline; retry on next tick
+  if (r.status !== 200) {
+    setErr((r.data && r.data.error) || 'State fetch failed.');
+    return;
+  }
+  $('restorebar').style.display = 'none';
+  state = r.data;
+  if (state && state.you !== undefined) save.seat = state.you;
+  keepSave();
+  render();
+  // Refresh the cached log when it grew.
+  const want = state.logCount || 0;
+  const have = (logCache && logCache.log && logCache.log.length) || 0;
+  if (want !== have) await refreshLog();
+  else renderLog();
+}
+function startPolling() {
+  stopPolling();
+  poll();
+  pollTimer = setInterval(poll, 1000);
+}
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+async function refreshLog() {
+  if (!save) return;
+  const r = await api('/api/matches/' + encodeURIComponent(save.code) + '/log');
+  if (r.status === 200 && r.data) {
+    logCache = r.data;
+    keepLogCache(save.code, logCache);
+  }
+  renderLog();
+}
+
+/* ---------- render ---------- */
+function playerBySeat(seat) {
+  if (!state || !state.players) return null;
+  return state.players.find((p) => p.seat === seat) || null;
+}
+function myTurn() {
+  return !!state && state.status === 'active' && state.turnSeat === (save && save.seat);
+}
+function legalTargets() {
+  if (!state || !state.legalMoves || replayIndex >= 0) return [];
+  return state.legalMoves.filter((m) => m.type === mode);
+}
+
+function render() {
+  if (!state) return;
+  showGame();
+  renderBanner();
+  renderBoard();
+  renderRoster();
+  renderActions();
+  renderLobby();
+}
+
+function renderBanner() {
+  const b = $('banner');
+  b.classList.remove('yours', 'done');
+  if (state.status === 'finished') {
+    const w = playerBySeat(state.winner);
+    const scores = [...(state.players || [])]
+      .sort((a, c) => c.score - a.score || c.baseHp - a.baseHp || a.seat - c.seat)
+      .map((p) => `${p.name} ${p.score}`)
+      .join('  |  ');
+    b.textContent = 'Winner: ' + (w ? w.name : 'seat ' + state.winner) + '   Final scores: ' + scores;
+    b.classList.add('done');
+  } else if (state.status === 'lobby') {
+    b.textContent = 'Lobby: waiting for players to join.';
+  } else if (myTurn()) {
+    b.textContent = 'Your turn, ' + (save.name || '') + '. Round ' + state.round + ' of 12.';
+    b.classList.add('yours');
+  } else {
+    const t = playerBySeat(state.turnSeat);
+    b.textContent = (t ? t.name : 'Seat ' + state.turnSeat) + ' to move. Round ' + state.round + ' of 12.';
+  }
+}
+
+function cellHTML(owner, shields, isBase, x, y, extra) {
+  const cls = 'cell' + (owner >= 0 ? ' o' + owner : '') + (extra || '');
+  let inner = '<span class="coord">' + x + ',' + y + '</span>';
+  if (shields > 0) inner += '<span class="shields">' + '◆'.repeat(shields) + '</span>';
+  if (isBase) {
+    const p = playerBySeat(owner);
+    const hp = p ? p.baseHp : 3;
+    inner += '<span class="crown">♛</span><span class="hp">HP ' + hp + '</span>';
+  }
+  return '<button class="' + cls + '" data-x="' + x + '" data-y="' + y + '">' + inner + '</button>';
+}
+
+function renderBoard() {
+  const el = $('board');
+  const targets = new Set(legalTargets().map((m) => m.x + ',' + m.y));
+  let html = '';
+  if (replayIndex >= 0 && logCache && logCache.log[replayIndex]) {
+    // Replay a snapshot: array of 36 {o, s, b} in row-major order.
+    const snap = logCache.log[replayIndex].snapshot;
+    for (let y = 0; y < 6; y++) {
+      for (let x = 0; x < 6; x++) {
+        const c = snap[y * 6 + x] || { o: -1, s: 0, b: false };
+        html += cellHTML(c.o, c.s, c.b, x, y, '');
+      }
+    }
+    $('boardtitle').textContent = 'Board (replay step ' + (replayIndex + 1) + ' of ' + logCache.log.length + ')';
+  } else {
+    for (const c of state.board) {
+      let extra = '';
+      if (state.status === 'active' && c.owner === state.turnSeat && c.owner >= 0) extra += ' mine';
+      if (targets.has(c.x + ',' + c.y)) extra += ' target';
+      html += cellHTML(c.owner, c.shields, c.isBase, c.x, c.y, extra);
+    }
+    $('boardtitle').textContent = 'Board';
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('.cell').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('target')) {
+        sendMove(mode, Number(btn.dataset.x), Number(btn.dataset.y));
+      } else if (myTurn() && replayIndex < 0) {
+        $('merr').textContent = 'Not a legal ' + mode + ' target. Highlighted cells only.';
+      }
+    });
+  });
+}
+
+function renderRoster() {
+  const rows = [];
+  for (let s = 0; s < state.seats; s++) {
+    const p = playerBySeat(s);
+    if (!p) {
+      rows.push('<tr><td><span class="dot" style="background:#3b4a5e"></span>seat ' + s +
+        '</td><td colspan="3" style="color:var(--dim)">open</td></tr>');
+      continue;
+    }
+    const nm = esc(p.name) + (p.kind === 'bot' ? '<span class="tagbot">BOT</span>' : '');
+    const cls = p.alive ? '' : ' class="dead"';
+    const turn = state.status === 'active' && state.turnSeat === s ? ' ◀' : '';
+    rows.push('<tr' + cls + '><td><span class="dot d' + s + '"></span>' + nm + turn +
+      '</td><td>' + p.cells + '</td><td>' + p.baseHp + '</td><td>' + p.score + '</td></tr>');
+  }
+  $('roster').innerHTML =
+    '<table class="roster"><tr><th>Player</th><th>Cells</th><th>Base</th><th>Score</th></tr>' +
+    rows.join('') + '</table>';
+}
+
+function renderActions() {
+  const ap = state.apLeft || 0;
+  let pips = '<span>AP ' + ap + '</span> ';
+  for (let i = 0; i < 6; i++) pips += '<span class="pip' + (i < ap ? ' on' : '') + '"></span>';
+  $('appips').innerHTML = pips + '<span style="margin-left:8px">Round ' + (state.round || 0) + ' / 12</span>';
+  const can = myTurn() && replayIndex < 0;
+  const over = state.status === 'finished';
+  document.querySelectorAll('#actionbar .mode').forEach((btn) => {
+    btn.disabled = !can;
+    btn.setAttribute('aria-pressed', (!over && btn.dataset.mode === mode) ? 'true' : 'false');
+  });
+  $('endbtn').disabled = !can;
+  if (!can) $('merr').textContent = '';
+}
+
+function renderLobby() {
+  const box = $('lobbybox');
+  if (!state || state.status !== 'lobby') { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  let html = '';
+  for (let s = 0; s < state.seats; s++) {
+    const p = playerBySeat(s);
+    if (p) html += '<div class="seatline"><span class="dot d' + s + '"></span>' + esc(p.name) + '</div>';
+    else html += '<div class="seatline empty">seat ' + s + ': waiting for player</div>';
+  }
+  $('lobbylist').innerHTML = html;
+  $('startbtn').classList.toggle('hidden', !(save && save.seat === 0));
+}
+
+function renderLog() {
+  const ul = $('loglist');
+  if (!logCache || !logCache.log || !logCache.log.length) {
+    ul.innerHTML = '<li>No entries yet.</li>';
+    return;
+  }
+  const tail = logCache.log.slice(-14).reverse();
+  ul.innerHTML = tail.map((e) => '<li><span class="n">#' + e.n + '</span>' + esc(e.text || '') + '</li>').join('');
+  if (replayIndex >= 0) {
+    const e = logCache.log[replayIndex];
+    $('replayinfo').textContent = e ? ('Step ' + (replayIndex + 1) + '/' + logCache.log.length + ': ' + e.text) : '';
+  }
+}
+
+/* ---------- moves ---------- */
+async function sendMove(type, x, y) {
+  if (!save || replayIndex >= 0) return;
+  $('merr').textContent = '';
+  const body = { token: save.token, type };
+  if (x !== undefined) body.x = x;
+  if (y !== undefined) body.y = y;
+  if (state && state.version !== undefined) body.ifVersion = state.version;
+  const r = await api('/api/matches/' + encodeURIComponent(save.code) + '/move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (r.status === 200) {
+    state = r.data.state || r.data;
+    render();
+    await refreshLog();
+  } else if (r.status === 409) {
+    $('merr').textContent = (r.data && r.data.error) || 'State advanced; refreshed.';
+    poll(); // state moved on: refresh immediately instead of waiting for the next tick
+  } else {
+    $('merr').textContent = (r.data && r.data.error) || 'Move rejected.';
+  }
+}
+
+/* ---------- replay ---------- */
+function stopReplay() {
+  if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+  $('rplay').textContent = 'Play';
+}
+function goLive() {
+  stopReplay();
+  replayIndex = -1;
+  $('replayinfo').textContent = 'Live view. Step back to review history.';
+  renderBoard();
+  renderActions();
+}
+function stepReplay(d) {
+  if (!logCache || !logCache.log.length) return;
+  stopReplay();
+  if (replayIndex < 0) replayIndex = logCache.log.length - 1;
+  replayIndex = Math.min(logCache.log.length - 1, Math.max(0, replayIndex + d));
+  renderBoard();
+  renderActions();
+  renderLog();
+}
+
+/* ---------- create / join / start / leave / restore ---------- */
+function setErr(msg) { $('err').textContent = msg || ''; }
+
+async function doCreate() {
+  setErr('');
+  const name = $('cname').value.trim() || 'Player';
+  const seats = Number($('cseats').value);
+  const fillBots = $('cbots').checked;
+  const r = await api('/api/matches', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, seats, fillBots }),
+  });
+  if (r.status !== 200) { setErr((r.data && r.data.error) || 'Create failed.'); return; }
+  save = { code: r.data.code, token: r.data.token, name, seat: r.data.seat };
+  keepSave();
+  state = r.data.state;
+  logCache = null;
+  replayIndex = -1;
+  startPolling();
+}
+
+async function doJoin() {
+  setErr('');
+  const name = $('jname').value.trim() || 'Player';
+  const code = $('jcode').value.trim().toUpperCase();
+  if (!code) { setErr('Enter a match code.'); return; }
+  const r = await api('/api/matches/' + encodeURIComponent(code) + '/join', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (r.status !== 200) { setErr((r.data && r.data.error) || 'Join failed.'); return; }
+  save = { code, token: r.data.token, name, seat: r.data.seat };
+  keepSave();
+  state = r.data.state;
+  logCache = null;
+  replayIndex = -1;
+  startPolling();
+}
+
+async function doStart() {
+  if (!save) return;
+  const r = await api('/api/matches/' + encodeURIComponent(save.code) + '/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: save.token }),
+  });
+  if (r.status !== 200) { $('merr').textContent = (r.data && r.data.error) || 'Start failed.'; return; }
+  state = r.data.state;
+  render();
+  await refreshLog();
+}
+
+function doLeave() {
+  stopPolling();
+  stopReplay();
+  save = null;
+  state = null;
+  logCache = null;
+  replayIndex = -1;
+  keepSave();
+  $('restorebar').style.display = 'none';
+  showHome();
+}
+
+async function doRestore() {
+  if (!save) return;
+  const cached = loadLogCache(save.code);
+  if (!cached) return;
+  const r = await api('/api/restore', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: save.code, players: cached.players, log: cached.log }),
+  });
+  if (r.status !== 200) {
+    $('restoretext').textContent = 'Restore failed: ' + ((r.data && r.data.error) || 'unknown error');
+    return;
+  }
+  const fresh = r.data.tokens && r.data.tokens[save.seat];
+  if (!fresh) {
+    $('restoretext').textContent = 'Restored, but no fresh token for your seat. Rejoin as a new player.';
+    return;
+  }
+  save.token = fresh;
+  save.code = r.data.code;
+  keepSave();
+  logCache = null;
+  state = r.data.state;
+  $('restorebar').style.display = 'none';
+  startPolling();
+}
+
+/* ---------- wire up ---------- */
+document.querySelectorAll('#actionbar .mode').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    mode = btn.dataset.mode;
+    $('merr').textContent = '';
+    renderBoard();
+    renderActions();
+  });
+});
+$('endbtn').addEventListener('click', () => sendMove('end'));
+$('createbtn').addEventListener('click', doCreate);
+$('joinbtn').addEventListener('click', doJoin);
+$('startbtn').addEventListener('click', doStart);
+$('leavebtn').addEventListener('click', doLeave);
+$('restorebtn').addEventListener('click', doRestore);
+$('copybtn').addEventListener('click', async () => {
+  if (!save) return;
+  $('copybtn').textContent = 'Copied';
+  setTimeout(() => { $('copybtn').textContent = 'Copy'; }, 1200);
+  try {
+    await navigator.clipboard.writeText(save.code);
+  } catch {
+    prompt('Match code:', save.code);
+  }
+});
+$('rprev').addEventListener('click', () => stepReplay(-1));
+$('rnext').addEventListener('click', () => stepReplay(1));
+$('rlive').addEventListener('click', goLive);
+$('rplay').addEventListener('click', () => {
+  if (!logCache || !logCache.log.length) return;
+  if (replayTimer) { stopReplay(); return; }
+  if (replayIndex < 0 || replayIndex >= logCache.log.length - 1) replayIndex = -1;
+  $('rplay').textContent = 'Pause';
+  replayTimer = setInterval(() => {
+    if (replayIndex >= logCache.log.length - 1) { stopReplay(); return; }
+    replayIndex = replayIndex < 0 ? 0 : replayIndex + 1;
+    renderBoard();
+    renderLog();
+  }, 700);
+});
+
+/* ---------- boot ---------- */
+loadSave();
+if (save && save.code) {
+  logCache = loadLogCache(save.code);
+  showGame();
+  startPolling();
+} else {
+  showHome();
+}
+</script>
+</body>
+</html>
